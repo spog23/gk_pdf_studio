@@ -1,11 +1,11 @@
 {
-    "name": "gk_pdf_studio",
-    "short_name": "gk_pdf_studio",
+    "name": "GK PDF Studio",
+    "short_name": "GK PDF Studio",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Minimal shell for GK PDF Studio.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

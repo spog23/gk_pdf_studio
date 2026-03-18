@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/pdf_file.dart';
+import '../../models/pdf_source_document.dart';
 import '../../services/pdf_service.dart';
 
 final pdfServiceProvider = Provider<PdfService>((ref) {
@@ -45,7 +45,10 @@ class MergeController extends Notifier<MergeState> {
     return const MergeState();
   }
 
-  Future<File> mergeFiles(List<PdfFile> files, String outputPath) async {
+  Future<File> mergeFiles(
+    List<PdfSourceDocument> documents,
+    String outputPath,
+  ) async {
     final pdfService = ref.read(pdfServiceProvider);
 
     state = state.copyWith(
@@ -54,7 +57,10 @@ class MergeController extends Notifier<MergeState> {
     );
 
     try {
-      final outputFile = await pdfService.mergePdfFiles(files, outputPath);
+      final outputFile = await pdfService.mergePdfFiles(
+        documents,
+        outputPath,
+      );
 
       state = state.copyWith(
         isLoading: false,

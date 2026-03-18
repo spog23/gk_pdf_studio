@@ -1,14 +1,14 @@
-import '../models/pdf_document.dart';
+import '../models/pdf_source_document.dart';
 
 class PdfDocumentService {
-  Future<PdfDocument?> restoreDraft() async {
+  Future<PdfSourceDocument?> restoreDraft() async {
     return null;
   }
 
-  Future<PdfDocument> createDraft() async {
-    return const PdfDocument(
-      name: 'Untitled Document',
-      pageCount: 0,
+  Future<PdfSourceDocument> createDraft() async {
+    return const PdfSourceDocument(
+      pages: [],
+      sourceFilePath: '',
     );
   }
 }

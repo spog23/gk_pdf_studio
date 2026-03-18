@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/pdf_document.dart';
+import '../models/pdf_source_document.dart';
 import '../services/pdf_document_service.dart';
 
 class PdfEditorController extends ChangeNotifier {
@@ -9,11 +9,11 @@ class PdfEditorController extends ChangeNotifier {
 
   final PdfDocumentService _documentService;
 
-  PdfDocument? _activeDocument;
+  PdfSourceDocument? _activeDocument;
   bool _isLoading = false;
   bool _isInitialized = false;
 
-  PdfDocument? get activeDocument => _activeDocument;
+  PdfSourceDocument? get activeDocument => _activeDocument;
   bool get isLoading => _isLoading;
 
   Future<void> initialize() async {

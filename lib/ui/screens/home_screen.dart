@@ -10,8 +10,15 @@ import '../../controllers/providers/pdf_files_provider.dart';
 import '../../models/pdf_source_document.dart';
 import '../widgets/editor_workspace.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  static const String _undoDeleteSnackBarLabel = 'Page deleted';
 
   Future<void> _importPdfDocuments(BuildContext context, WidgetRef ref) async {
     try {
@@ -116,16 +123,25 @@ class HomeScreen extends ConsumerWidget {
     }
 
     ref.read(pdfDocumentsProvider.notifier).deletePage(selectedPage);
+    if (ref.read(lastDeletedPageActionProvider) == null) {
+      return;
+    }
 
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        content: const Text('Page deleted'),
+        content: const Text(_undoDeleteSnackBarLabel),
         action: SnackBarAction(
           label: 'UNDO',
           onPressed: () {
+            if (ref.read(lastDeletedPageActionProvider) == null) {
+              messenger.hideCurrentSnackBar();
+              return;
+            }
+
             ref.read(pdfDocumentsProvider.notifier).undoDelete();
+            messenger.hideCurrentSnackBar();
           },
         ),
       ),
@@ -177,7 +193,16 @@ class HomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    ref.listen<DeletedPageAction?>(lastDeletedPageActionProvider, (
+      previous,
+      next,
+    ) {
+      if (previous != null && next == null && context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+    });
+
     final importedDocuments = ref.watch(pdfDocumentsProvider);
     final mergeState = ref.watch(mergeControllerProvider);
     final selectedPage = ref.watch(selectedPageProvider);

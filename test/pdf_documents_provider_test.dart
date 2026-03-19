@@ -121,6 +121,61 @@ void main() {
     expect(currentState.first.pages.first.rotation, 90);
   });
 
+  test('moving a page invalidates the pending delete undo', () {
+    final container = createContainer();
+    final document = createDocument('file1.pdf', 3);
+
+    container.read(pdfDocumentsProvider.notifier).addDocuments([document]);
+    container
+        .read(pdfDocumentsProvider.notifier)
+        .deletePage(document.pages.first);
+
+    final remainingPage = container.read(pdfDocumentsProvider).first.pages.last;
+    container.read(pdfDocumentsProvider.notifier).movePageUp(remainingPage);
+    container.read(pdfDocumentsProvider.notifier).undoDelete();
+
+    expect(flattenPageOrder(container.read(pdfDocumentsProvider)), [
+      'file1.pdf:2',
+      'file1.pdf:1',
+    ]);
+  });
+
+  test('importing a new PDF invalidates the pending delete undo', () {
+    final container = createContainer();
+    final firstDocument = createDocument('file1.pdf', 2);
+    final secondDocument = createDocument('file2.pdf', 1);
+
+    container.read(pdfDocumentsProvider.notifier).addDocuments([firstDocument]);
+    container
+        .read(pdfDocumentsProvider.notifier)
+        .deletePage(firstDocument.pages.first);
+
+    container.read(pdfDocumentsProvider.notifier).addDocuments([
+      secondDocument,
+    ]);
+    container.read(pdfDocumentsProvider.notifier).undoDelete();
+
+    expect(flattenPageOrder(container.read(pdfDocumentsProvider)), [
+      'file1.pdf:1',
+      'file2.pdf:0',
+    ]);
+  });
+
+  test('clearAll invalidates the pending delete undo', () {
+    final container = createContainer();
+    final document = createDocument('file1.pdf', 2);
+
+    container.read(pdfDocumentsProvider.notifier).addDocuments([document]);
+    container
+        .read(pdfDocumentsProvider.notifier)
+        .deletePage(document.pages.first);
+
+    container.read(pdfDocumentsProvider.notifier).clearAll();
+    container.read(pdfDocumentsProvider.notifier).undoDelete();
+
+    expect(container.read(pdfDocumentsProvider), isEmpty);
+  });
+
   test('movePageUp swaps with the previous flat page and keeps selection', () {
     final container = createContainer();
     final firstDocument = createDocument('file1.pdf', 2);

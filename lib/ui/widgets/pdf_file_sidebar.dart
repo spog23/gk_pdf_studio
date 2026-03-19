@@ -5,11 +5,30 @@ import '../../controllers/providers/pdf_files_provider.dart';
 import '../../models/pdf_page.dart';
 import '../../models/pdf_source_document.dart';
 
-class PdfFileSidebar extends ConsumerWidget {
+class PdfFileSidebar extends ConsumerStatefulWidget {
   const PdfFileSidebar({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PdfFileSidebar> createState() => _PdfFileSidebarState();
+}
+
+class _PdfFileSidebarState extends ConsumerState<PdfFileSidebar> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final documents = ref.watch(pdfDocumentsProvider);
     final selectedPage = ref.watch(selectedPageProvider);
     final pageEntries = _buildPageEntries(documents);
@@ -54,31 +73,40 @@ class PdfFileSidebar extends ConsumerWidget {
                 child: pageEntries.isEmpty
                     ? const Center(child: Text('No PDFs imported yet.'))
                     : Scrollbar(
-                        child: ListView.separated(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        child: ListView.builder(
+                          controller: _scrollController,
                           padding: const EdgeInsets.all(12),
+                          primary: false,
+                          physics: const BouncingScrollPhysics(),
                           itemCount: pageEntries.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 6),
                           itemBuilder: (context, index) {
                             final entry = pageEntries[index];
 
-                            return _PageRow(
-                              orderIndex: index,
-                              page: entry.page,
-                              fileName: _fileNameFromPath(
-                                entry.page.sourceFilePath,
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: index == pageEntries.length - 1 ? 0 : 6,
                               ),
-                              isSelected: _isSelectedPage(
-                                entry.page,
-                                selectedPage,
+                              child: _PageRow(
+                                orderIndex: index,
+                                page: entry.page,
+                                fileName: _fileNameFromPath(
+                                  entry.page.sourceFilePath,
+                                ),
+                                isSelected: _isSelectedPage(
+                                  entry.page,
+                                  selectedPage,
+                                ),
+                                onTap: () {
+                                  ref
+                                      .read(selectedDocumentProvider.notifier)
+                                      .select(entry.document);
+                                  ref
+                                      .read(selectedPageProvider.notifier)
+                                      .select(entry.page);
+                                },
                               ),
-                              onTap: () {
-                                ref
-                                    .read(selectedDocumentProvider.notifier)
-                                    .select(entry.document);
-                                ref
-                                    .read(selectedPageProvider.notifier)
-                                    .select(entry.page);
-                              },
                             );
                           },
                         ),
@@ -135,45 +163,84 @@ class _PageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rotationIndicator = _rotationIndicator(page.rotation);
+
     return Material(
-      color: isSelected ? const Color(0xFF173041) : const Color(0xFF141920),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF22516A)
-                      : const Color(0xFF1B232D),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('${orderIndex + 1}'),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF173041)
+                  : const Color(0xFF141920),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF2E6D8D)
+                    : const Color(0xFF1C242D),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Page ${page.pageIndex + 1} ($fileName)',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '${orderIndex + 1}. ',
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'Page ${page.pageIndex + 1} — $fileName',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (rotationIndicator != null) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      rotationIndicator,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ],
               ),
-              if (page.rotation != 0)
-                Text(
-                  '${page.rotation} deg',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  String? _rotationIndicator(int rotation) {
+    const clockwise = '\u{1F501}';
+
+    switch (rotation % 360) {
+      case 90:
+        return clockwise;
+      case 180:
+        return '$clockwise$clockwise';
+      case 270:
+        return '$clockwise$clockwise$clockwise';
+      default:
+        return null;
+    }
   }
 }

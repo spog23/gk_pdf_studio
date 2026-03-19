@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,8 +28,10 @@ void main() {
   Future<void> pumpWideApp(WidgetTester tester, Widget child) async {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1.0;
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
     await tester.pumpWidget(child);
     await tester.pump();
@@ -95,5 +98,41 @@ void main() {
 
     expect(findButton(tester, 'Move Up').onPressed, isNotNull);
     expect(findButton(tester, 'Move Down').onPressed, isNull);
+  });
+
+  testWidgets('delete undo snackbar is dismissed when undo becomes invalid', (
+    WidgetTester tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final document = createDocument('file1.pdf', 2);
+    container.read(pdfDocumentsProvider.notifier).addDocuments([document]);
+    container.read(selectedPageProvider.notifier).select(document.pages.first);
+
+    await pumpWideApp(
+      tester,
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(theme: AppTheme.dark(), home: const HomeScreen()),
+      ),
+    );
+
+    await tester.tap(find.text('Delete Page'));
+    await tester.pump();
+
+    expect(find.text('Page deleted'), findsOneWidget);
+    expect(find.text('UNDO'), findsOneWidget);
+
+    final remainingPage = container
+        .read(pdfDocumentsProvider)
+        .first
+        .pages
+        .first;
+    container.read(pdfDocumentsProvider.notifier).rotatePage(remainingPage, 90);
+    await tester.pumpAndSettle();
+
+    expect(find.text('UNDO'), findsNothing);
+    expect(find.text('Page deleted'), findsNothing);
   });
 }

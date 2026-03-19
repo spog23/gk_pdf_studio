@@ -29,29 +29,38 @@ void main() {
     tester.view.physicalSize = const Size(1600, 1200);
     tester.view.devicePixelRatio = 1.0;
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
     await tester.pumpWidget(child);
     await tester.pump();
   }
 
+  Future<void> cleanupWideApp(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    debugDefaultTargetPlatformOverride = null;
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  }
+
   testWidgets('renders the updated PDF toolbar shell', (
     WidgetTester tester,
   ) async {
-    await pumpWideApp(tester, const GKPdfStudioApp());
+    try {
+      await pumpWideApp(tester, const GKPdfStudioApp());
 
-    expect(find.text('GK PDF Studio'), findsOneWidget);
-    expect(find.text('Import PDF'), findsOneWidget);
-    expect(find.text('Rotate'), findsOneWidget);
-    expect(find.text('Delete Page'), findsOneWidget);
-    expect(find.text('Move Up'), findsOneWidget);
-    expect(find.text('Move Down'), findsOneWidget);
-    expect(find.text('Export'), findsOneWidget);
-    expect(find.text('Clear All'), findsOneWidget);
-    expect(find.text('Imported PDFs'), findsOneWidget);
-    expect(find.text('No PDFs imported yet.'), findsOneWidget);
+      expect(find.text('GK PDF Studio'), findsOneWidget);
+      expect(find.text('Import PDF'), findsOneWidget);
+      expect(find.text('Rotate'), findsOneWidget);
+      expect(find.text('Delete Page'), findsOneWidget);
+      expect(find.text('Move Up'), findsOneWidget);
+      expect(find.text('Move Down'), findsOneWidget);
+      expect(find.text('Export'), findsOneWidget);
+      expect(find.text('Clear All'), findsOneWidget);
+      expect(find.text('Imported PDFs'), findsOneWidget);
+      expect(find.text('No PDFs imported yet.'), findsOneWidget);
+    } finally {
+      await cleanupWideApp(tester);
+    }
   });
 
   testWidgets('toolbar buttons enable and disable based on page state', (
@@ -60,44 +69,48 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    await pumpWideApp(
-      tester,
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(theme: AppTheme.dark(), home: const HomeScreen()),
-      ),
-    );
+    try {
+      await pumpWideApp(
+        tester,
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(theme: AppTheme.dark(), home: const HomeScreen()),
+        ),
+      );
 
-    expect(findButton(tester, 'Rotate').onPressed, isNull);
-    expect(findButton(tester, 'Delete Page').onPressed, isNull);
-    expect(findButton(tester, 'Move Up').onPressed, isNull);
-    expect(findButton(tester, 'Move Down').onPressed, isNull);
-    expect(findButton(tester, 'Export').onPressed, isNull);
-    expect(findButton(tester, 'Clear All').onPressed, isNull);
+      expect(findButton(tester, 'Rotate').onPressed, isNull);
+      expect(findButton(tester, 'Delete Page').onPressed, isNull);
+      expect(findButton(tester, 'Move Up').onPressed, isNull);
+      expect(findButton(tester, 'Move Down').onPressed, isNull);
+      expect(findButton(tester, 'Export').onPressed, isNull);
+      expect(findButton(tester, 'Clear All').onPressed, isNull);
 
-    final document = createDocument('file1.pdf', 2);
-    container.read(pdfDocumentsProvider.notifier).addDocuments([document]);
-    await tester.pump();
+      final document = createDocument('file1.pdf', 2);
+      container.read(pdfDocumentsProvider.notifier).addDocuments([document]);
+      await tester.pump();
 
-    expect(findButton(tester, 'Export').onPressed, isNotNull);
-    expect(findButton(tester, 'Clear All').onPressed, isNotNull);
-    expect(findButton(tester, 'Rotate').onPressed, isNull);
+      expect(findButton(tester, 'Export').onPressed, isNotNull);
+      expect(findButton(tester, 'Clear All').onPressed, isNotNull);
+      expect(findButton(tester, 'Rotate').onPressed, isNull);
 
-    final firstPage = container.read(pdfDocumentsProvider).first.pages.first;
-    container.read(selectedPageProvider.notifier).select(firstPage);
-    await tester.pump();
+      final firstPage = container.read(pdfDocumentsProvider).first.pages.first;
+      container.read(selectedPageProvider.notifier).select(firstPage);
+      await tester.pump();
 
-    expect(findButton(tester, 'Rotate').onPressed, isNotNull);
-    expect(findButton(tester, 'Delete Page').onPressed, isNotNull);
-    expect(findButton(tester, 'Move Up').onPressed, isNull);
-    expect(findButton(tester, 'Move Down').onPressed, isNotNull);
+      expect(findButton(tester, 'Rotate').onPressed, isNotNull);
+      expect(findButton(tester, 'Delete Page').onPressed, isNotNull);
+      expect(findButton(tester, 'Move Up').onPressed, isNull);
+      expect(findButton(tester, 'Move Down').onPressed, isNotNull);
 
-    final lastPage = container.read(pdfDocumentsProvider).first.pages.last;
-    container.read(selectedPageProvider.notifier).select(lastPage);
-    await tester.pump();
+      final lastPage = container.read(pdfDocumentsProvider).first.pages.last;
+      container.read(selectedPageProvider.notifier).select(lastPage);
+      await tester.pump();
 
-    expect(findButton(tester, 'Move Up').onPressed, isNotNull);
-    expect(findButton(tester, 'Move Down').onPressed, isNull);
+      expect(findButton(tester, 'Move Up').onPressed, isNotNull);
+      expect(findButton(tester, 'Move Down').onPressed, isNull);
+    } finally {
+      await cleanupWideApp(tester);
+    }
   });
 
   testWidgets('delete undo snackbar is dismissed when undo becomes invalid', (
@@ -110,29 +123,33 @@ void main() {
     container.read(pdfDocumentsProvider.notifier).addDocuments([document]);
     container.read(selectedPageProvider.notifier).select(document.pages.first);
 
-    await pumpWideApp(
-      tester,
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(theme: AppTheme.dark(), home: const HomeScreen()),
-      ),
-    );
+    try {
+      await pumpWideApp(
+        tester,
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(theme: AppTheme.dark(), home: const HomeScreen()),
+        ),
+      );
 
-    await tester.tap(find.text('Delete Page'));
-    await tester.pump();
+      await tester.tap(find.text('Delete Page'));
+      await tester.pump();
 
-    expect(find.text('Page deleted'), findsOneWidget);
-    expect(find.text('UNDO'), findsOneWidget);
+      expect(find.text('Page deleted'), findsOneWidget);
+      expect(find.text('UNDO'), findsOneWidget);
 
-    final remainingPage = container
-        .read(pdfDocumentsProvider)
-        .first
-        .pages
-        .first;
-    container.read(pdfDocumentsProvider.notifier).rotatePage(remainingPage, 90);
-    await tester.pumpAndSettle();
+      final remainingPage = container
+          .read(pdfDocumentsProvider)
+          .first
+          .pages
+          .first;
+      container.read(pdfDocumentsProvider.notifier).rotatePage(remainingPage, 90);
+      await tester.pump();
 
-    expect(find.text('UNDO'), findsNothing);
-    expect(find.text('Page deleted'), findsNothing);
+      expect(find.text('UNDO'), findsNothing);
+      expect(find.text('Page deleted'), findsNothing);
+    } finally {
+      await cleanupWideApp(tester);
+    }
   });
 }

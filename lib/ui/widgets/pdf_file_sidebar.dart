@@ -75,16 +75,28 @@ class _PdfFileSidebarState extends ConsumerState<PdfFileSidebar> {
                     : Scrollbar(
                         controller: _scrollController,
                         thumbVisibility: true,
-                        child: ListView.builder(
-                          controller: _scrollController,
+                        child: ReorderableListView.builder(
+                          scrollController: _scrollController,
                           padding: const EdgeInsets.all(12),
                           primary: false,
                           physics: const BouncingScrollPhysics(),
+                          buildDefaultDragHandles: false,
                           itemCount: pageEntries.length,
+                          onReorder: (oldIndex, newIndex) {
+                            var targetIndex = newIndex;
+                            if (targetIndex > oldIndex) {
+                              targetIndex -= 1;
+                            }
+
+                            ref
+                                .read(pdfDocumentsProvider.notifier)
+                                .reorderPage(oldIndex, targetIndex);
+                          },
                           itemBuilder: (context, index) {
                             final entry = pageEntries[index];
 
                             return Padding(
+                              key: ValueKey(_pageKey(entry.page)),
                               padding: EdgeInsets.only(
                                 bottom: index == pageEntries.length - 1 ? 0 : 6,
                               ),
@@ -136,6 +148,10 @@ class _PdfFileSidebarState extends ConsumerState<PdfFileSidebar> {
   String _fileNameFromPath(String path) {
     final segments = path.split(RegExp(r'[\\/]'));
     return segments.isEmpty ? path : segments.last;
+  }
+
+  String _pageKey(PdfPage page) {
+    return '${page.sourceFilePath}::${page.pageIndex}';
   }
 }
 
@@ -211,6 +227,15 @@ class _PageRow extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ReorderableDragStartListener(
+                    index: orderIndex,
+                    child: Icon(
+                      Icons.drag_handle,
+                      size: 18,
+                      color: isSelected ? Colors.white70 : Colors.white54,
                     ),
                   ),
                   if (rotationIndicator != null) ...[

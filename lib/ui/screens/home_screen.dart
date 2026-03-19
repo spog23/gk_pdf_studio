@@ -56,8 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<String?> _pickExportOutputPath(
     List<PdfSourceDocument> documents,
   ) async {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final suggestedFileName = 'exported_$timestamp.pdf';
+    final suggestedFileName = _buildDefaultExportFileName(DateTime.now());
     final initialDirectory = documents.isEmpty
         ? null
         : File(documents.first.sourceFilePath).parent.path;
@@ -70,6 +69,110 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       allowedExtensions: const ['pdf'],
       lockParentWindow: true,
     );
+  }
+
+  Future<void> _showExportSuccessDialog(
+    BuildContext context,
+    WidgetRef ref,
+    File outputFile,
+  ) async {
+    final filePath = outputFile.path;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Export Successful'),
+          content: Text('File saved to:\n$filePath'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final opened = await _openExportedFile(outputFile);
+                if (context.mounted && !opened) {
+                  _showOpenFailureSnackBar(context, 'Unable to open file.');
+                }
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Open File'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final opened = await _openExportFolder(outputFile);
+                if (context.mounted && !opened) {
+                  _showOpenFailureSnackBar(context, 'Unable to open folder.');
+                }
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Open Folder'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted) {
+      return;
+    }
+
+    ref.read(pdfDocumentsProvider.notifier).clearAll();
+    ref.read(selectedPageProvider.notifier).clear();
+  }
+
+  void _showOpenFailureSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _openExportedFile(File file) async {
+    try {
+      if (Platform.isWindows) {
+        await Process.start('cmd', ['/c', 'start', '', file.path]);
+        return true;
+      }
+      if (Platform.isMacOS) {
+        await Process.start('open', [file.path]);
+        return true;
+      }
+      if (Platform.isLinux) {
+        await Process.start('xdg-open', [file.path]);
+        return true;
+      }
+    } catch (_) {
+      return false;
+    }
+
+    return false;
+  }
+
+  Future<bool> _openExportFolder(File file) async {
+    try {
+      if (Platform.isWindows) {
+        await Process.start('explorer.exe', ['/select,${file.path}']);
+        return true;
+      }
+      if (Platform.isMacOS) {
+        await Process.start('open', ['-R', file.path]);
+        return true;
+      }
+      if (Platform.isLinux) {
+        await Process.start('xdg-open', [file.parent.path]);
+        return true;
+      }
+    } catch (_) {
+      return false;
+    }
+
+    return false;
   }
 
   Future<void> _exportPdf(BuildContext context, WidgetRef ref) async {
@@ -93,18 +196,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
 
+      final normalizedOutputPath = _ensurePdfExtension(outputPath);
+
       final outputFile = await ref
           .read(mergeControllerProvider.notifier)
-          .mergeFiles(documents, outputPath);
+          .mergeFiles(documents, normalizedOutputPath);
 
       if (!context.mounted) {
         return;
       }
 
       ref.read(pdfDocumentsProvider.notifier).clearDeleteHistory();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('File saved to: ${outputFile.path}')),
-      );
+      await _showExportSuccessDialog(context, ref, outputFile);
     } catch (_) {
       if (!context.mounted) {
         return;
@@ -114,6 +217,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         const SnackBar(content: Text('Unable to export PDF file.')),
       );
     }
+  }
+
+  String _ensurePdfExtension(String path) {
+    return path.toLowerCase().endsWith('.pdf') ? path : '$path.pdf';
+  }
+
+  String _buildDefaultExportFileName(DateTime timestamp) {
+    final year = timestamp.year.toString().padLeft(4, '0');
+    final month = timestamp.month.toString().padLeft(2, '0');
+    final day = timestamp.day.toString().padLeft(2, '0');
+    final hour = timestamp.hour.toString().padLeft(2, '0');
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+
+    return 'GK_Output_$year-$month-${day}_$hour$minute.pdf';
   }
 
   void _deleteSelectedPage(BuildContext context, WidgetRef ref) {

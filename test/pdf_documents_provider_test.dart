@@ -223,4 +223,47 @@ void main() {
     expect(container.read(selectedPageProvider)?.sourceFilePath, 'file1.pdf');
     expect(container.read(selectedPageProvider)?.pageIndex, 1);
   });
+
+  test('reorderPage moves a page across documents in flat output order', () {
+    final container = createContainer();
+    final firstDocument = createDocument('file1.pdf', 2);
+    final secondDocument = createDocument('file2.pdf', 2);
+
+    container.read(pdfDocumentsProvider.notifier).addDocuments([
+      firstDocument,
+      secondDocument,
+    ]);
+
+    container.read(pdfDocumentsProvider.notifier).reorderPage(0, 2);
+
+    expect(flattenPageOrder(container.read(pdfDocumentsProvider)), [
+      'file1.pdf:1',
+      'file2.pdf:0',
+      'file1.pdf:0',
+      'file2.pdf:1',
+    ]);
+  });
+
+  test('reorderPage keeps the selected page selected after moving it', () {
+    final container = createContainer();
+    final firstDocument = createDocument('file1.pdf', 2);
+    final secondDocument = createDocument('file2.pdf', 1);
+    final selectedPage = firstDocument.pages.first;
+
+    container.read(pdfDocumentsProvider.notifier).addDocuments([
+      firstDocument,
+      secondDocument,
+    ]);
+    container.read(selectedPageProvider.notifier).select(selectedPage);
+
+    container.read(pdfDocumentsProvider.notifier).reorderPage(0, 2);
+
+    expect(flattenPageOrder(container.read(pdfDocumentsProvider)), [
+      'file1.pdf:1',
+      'file2.pdf:0',
+      'file1.pdf:0',
+    ]);
+    expect(container.read(selectedPageProvider)?.sourceFilePath, 'file1.pdf');
+    expect(container.read(selectedPageProvider)?.pageIndex, 0);
+  });
 }

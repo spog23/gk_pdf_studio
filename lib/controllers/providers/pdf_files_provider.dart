@@ -258,6 +258,31 @@ class PdfDocumentsNotifier extends Notifier<List<PdfSourceDocument>> {
     clearDeleteHistory();
   }
 
+  void reorderPage(int oldIndex, int newIndex) {
+    final flatPages = _flattenPages();
+    if (oldIndex < 0 ||
+        oldIndex >= flatPages.length ||
+        newIndex < 0 ||
+        newIndex >= flatPages.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+
+    final movedPages = [...flatPages];
+    final movedPage = movedPages.removeAt(oldIndex);
+    movedPages.insert(newIndex, movedPage);
+
+    state = _buildDocumentsFromPages(movedPages);
+
+    final selectedPage = ref.read(selectedPageProvider);
+    if (selectedPage != null) {
+      _selectPageAndContainingDocument(selectedPage);
+    } else {
+      ref.read(selectedDocumentProvider.notifier).clear();
+    }
+    clearDeleteHistory();
+  }
+
   void clearDeleteHistory() {
     ref.read(lastDeletedPageActionProvider.notifier).clear();
   }
